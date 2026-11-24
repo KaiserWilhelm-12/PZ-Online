@@ -1,0 +1,365 @@
+MASTER DEVELOPMENT PROMPT: ORIGINAL IPAD-FIRST ZOMBIE SURVIVAL SANDBOX
+
+You are acting as an entire senior game-development team consisting of a game director, lead gameplay programmer, multiplayer/networking engineer, technical architect, survival-systems designer, AI engineer, world designer, UI/UX designer, technical artist, audio designer, database engineer, DevOps engineer, QA lead, web-performance specialist, accessibility specialist, and security engineer.
+
+Your task is to design and progressively implement a highly detailed, original, 2D zombie-survival sandbox for web browsers. Use Project Zomboid only as the primary inspiration and quality benchmark for survival depth, danger, persistence, player freedom, environmental storytelling, character vulnerability, multiplayer cooperation, and emergent gameplay.
+
+This must be an original game, not a clone. Do not copy or extract Project Zomboid source code, game files, assets, sprites, animations, audio, music, writing, item descriptions, exact numerical balance, exact recipes, exact professions or traits, exact UI, logos, branding, named locations, building layouts, roads, map data, lore, characters, promotional materials, mods, fan maps, screenshots, or proprietary content. Do not reproduce its map through tracing, screenshots, extracted tile data, fan resources, or one-to-one reconstruction. All code, assets, locations, interfaces, names, world layouts, balancing, writing, visual identity, and implementation details must be original.
+
+CORE PROJECT BRIEF
+
+Create a persistent, multiplayer-first, 2D zombie-survival sandbox designed for:
+- Apple iPad 10th Generation
+- Safari and home-screen PWA mode
+- Landscape orientation
+- Touch controls without requiring a keyboard or mouse
+- Groups of up to 10 concurrent players
+- Private persistent servers
+- Desktop browsers as a secondary target
+
+Players must be able to explore a large original region, search buildings, manage supplies, fight or evade infected, treat detailed injuries, manage hunger/thirst/fatigue/temperature/mental condition, establish shelters, barricade and build, farm, cook, craft, repair equipment, operate generators and water systems, maintain vehicles, cooperate or compete, improve practical skills, survive for long periods, die permanently, and continue in the same persistent world with a new character.
+
+The world must continue without the player. Weather, decay, resource depletion, infected migration, power and water failure, vegetation growth, spoilage, fires, vehicles, bodies, and player-built structures persist and progress.
+
+DESIGN PILLARS
+
+1. Vulnerability: The player is an ordinary survivor, not an action hero. Careless decisions, untreated wounds, noise, crashes, fire, infection, or exhaustion can end a long-running character.
+2. Systemic depth: Mechanics interact. Rain fills containers; wet clothes lower temperature; illness reduces endurance; wounds affect handling; generators provide electricity while consuming fuel, creating noise, and producing dangerous fumes; food spoils after electricity fails.
+3. Emergent storytelling: Stories arise from scarcity, injuries, weather, noise, rescues, failed plans, vehicle breakdowns, fire, cooperation, betrayal, discoveries, and death.
+4. Persistent consequences: Broken windows, opened doors, blood, damage, containers, vehicles, bodies, fires, and construction persist. Loot does not magically return by default.
+5. Touch-first interaction: Never port a keyboard UI by drawing virtual keyboard buttons over it.
+6. Original identity: Create a distinct setting, art direction, interface language, map, outbreak, factions, names, and visual design.
+
+PRACTICAL INITIAL SCOPE
+
+Build a polished vertical slice before expanding:
+- One original town and surrounding rural territory
+- Residential, commercial, industrial, emergency, forest, and farmland zones
+- 80-150 enterable buildings
+- 150-250 useful item definitions
+- 8-12 melee weapon categories
+- 3-5 ranged weapon categories
+- Four vehicle categories
+- Ten-player multiplayer
+- Persistent world saving
+- Core survival simulation
+- Barricading and basic construction
+- Touch controls
+- A limited but polished crafting system
+
+Do not begin with a continent, 100-player servers, advanced NPC civilization, or thousands of unfinished items.
+
+ORIGINAL WORLD
+
+Design a fictional region with an original name, history, climate, population, industries, architecture, infrastructure, emergency response, outbreak timeline, landmarks, and environmental story. Include a dense town center, neighborhoods, apartments, convenience stores, supermarket, pharmacy, clinic, emergency-services building, school, restaurants, hardware store, fuel station, warehouses, factory, storage units, motel, workshop, farms, barns, forest trails, river or reservoir, utilities, rural homes, checkpoints, camps, service routes, hidden locations, chokepoints, and multiple travel routes.
+
+Buildings need plausible entrances, exits, storage, restrooms, kitchens, utility rooms, staff areas, furniture, windows, loading areas, maintenance access, and loot based on their real function. Use reusable modules without repetitive streets. Use an entirely original coordinate system and tile data.
+
+WORLD STREAMING
+
+Divide the map into streamable chunks. Load only nearby terrain, structures, interactive objects, lighting, audio emitters, infected, vehicles, containers, construction, and effects.
+
+Use three simulation levels:
+- Active: full collision, movement, AI, combat, animation, sound response, fire, and interaction near players.
+- Reduced: simplified migration, vehicle persistence, generator consumption, plants, spoilage, fire summaries, and environmental progression in nearby unloaded areas.
+- Dormant: timestamp-based growth, decay, aggregate infected populations, utility schedules, and structural state far from players.
+
+Prevent duplication, entity loss, teleportation, or corruption when transitioning between simulation levels.
+
+CAMERA AND VISUALS
+
+Compare isometric and angled top-down presentation for touch targeting, sprite workload, visibility, occlusion, collision, lighting, and iPad performance. Choose one and justify it. Support smooth follow, pinch zoom, two-finger pan, indoor visibility, roof/floor hiding, occlusion outlines, adjustable zoom, reduced motion, and configurable camera shake.
+
+Provide Battery Saver, Balanced, and High presets controlling render scale, lighting, shadows, rain, fog, smoke, fire, particles, reflections, vegetation, animation distance, blood persistence, and visible infected detail.
+
+IPAD TOUCH CONTROLS
+
+Design for two-thumb landscape play.
+- Left: adjustable floating or fixed joystick, walk/run sensitivity, sneak toggle, optional auto-walk.
+- Right: context action, aim/facing, attack, defensive push, quick equipment, radial menu, and camera gesture zone.
+- Gestures: tap, safe double-tap shortcuts, press-and-hold choices, drag-and-drop, pinch zoom, two-finger pan, inventory swipes, and hold-to-transfer.
+
+The context-action system may offer open, close, climb, search, pick up, drink, fill, enter vehicle, treat, move furniture, barricade, repair, start engine, or extinguish fire. It must show action, duration, and clear hazards; support cancellation; honor line-of-sight/elevation; never interact through walls; and prevent accidental consumption or destruction.
+
+Use large targets, safe-area insets, left-handed mode, repositionable/resizable controls, opacity settings, no hover dependency, and no pixel-perfect taps.
+
+CHARACTERS
+
+Create original backgrounds, aptitudes, burdens, starting knowledge, fears, and specialties. Do not reuse PZ's exact professions, traits, costs, or descriptions. Include at least 12 backgrounds, 24 positive aptitudes, 24 negative burdens, randomized characters, appearance choices, and saved presets. Advantages need real trade-offs; no occupation dominates; cooperative team composition should matter.
+
+Model hunger, thirst, fatigue, sleep quality, body temperature, exertion, health, blood volume, pain, endurance, strength, fitness, mass, encumbrance, hand function, movement, vision, hearing, illness, intoxication, and medication. Mental conditions include fear, panic, stress, morale, understimulation, grief where appropriate, environmental discomfort, and sleep disturbance without removing player agency.
+
+Track injuries on meaningful body regions, including left/right arms, hands, legs, and feet.
+
+MEDICAL AND OUTBREAK SYSTEMS
+
+Support scratches, lacerations, punctures, bites, bruises, burns, deep wounds, fractures, sprains, embedded debris, blood loss, infection, hypothermia, heat illness, food poisoning, respiratory irritation, exhaustion, and overdose. Treatment can require cleaning, bandaging, replacing dirty bandages, bleeding control, splinting, suturing where suitable, medication, rest, food, hydration, clean conditions, skill, tools, and time. Keep it understandable and clearly fictional rather than real-world medical advice.
+
+Create an original pathogen, uncertain origin, transmission routes, incubation, symptoms, progression, infected behavior, and player knowledge. Server owners can configure transmission, incubation, mortality, symptoms, senses, speed, strength, population, respawn, migration, and environmental risk.
+
+SKILLS
+
+Use original practical skills such as athletics, close combat, ranged combat, stealth, scavenging, cooking, preservation, agriculture, construction, electrical work, vehicle maintenance, fabrication, first aid, tailoring, fishing, trapping, navigation, wilderness, and logistics.
+
+Progress through activity, reading, practice projects, mentorship, manuals, repairs, and survival. Prevent repetitive grinding with diminishing returns, variety requirements, material/time costs, risk, prerequisites, and quality outcomes.
+
+INVENTORY, ITEMS, AND LOOT
+
+Every item instance may include ID, definition ID, mass, volume, condition, durability, temperature, wetness, freshness, contamination, fuel/charge, ammunition, repair history, tags, stack rules, equipped location, icon, world sprite, and sound profile.
+
+Containers use mass and volume limits, access time, condition, locks, permissions, and strict nested-container depth. Provide two-panel touch inventory, drag-and-drop, tap transfer, stack quantity, hold-to-transfer, queues, search, filters, sorting, favorites, locked items, quick slots, nearby containers, and capacity indicators.
+
+Prevent duplication during disconnects, concurrent access, trades, crafting, nested storage, and vehicle storage using server authority, transactions, idempotency keys, ownership checks, and version numbers.
+
+Loot depends on building, room, container, wealth, timeline, survivor activity, server age, season, and scarcity settings. Avoid implausible placement. Essential survival should not depend on one rare random drop.
+
+FOOD, WATER, CLOTHING
+
+Food supports calories, hydration, freshness, spoilage, temperature, preparation, cooking, contamination, portions, containers, substitutions, quality, and preservation. Water sources include plumbing, bottles, wells, rain, rivers, reservoirs, and tanks. Water may be clean, questionable, contaminated, or purified. Players can boil, filter, collect, store, and transfer it.
+
+Clothing supports coverage, layers, insulation, wind/water resistance, protection, durability, wetness, dirt, blood, movement restriction, pockets, and visual condition. Heavy protection creates heat, fatigue, mobility, noise, and equip-time trade-offs. Support washing, drying, patching, reinforcement, and material recovery.
+
+COMBAT
+
+Combat is dangerous and deliberate. Model facing, attack arcs, reach, impact, stamina, recovery, durability, position, crowd penalties, stagger, push, ground attacks, escape, environmental collision, and configurable friendly fire.
+
+Ranged weapons model aim time, movement penalties, recoil, handling, ammunition, reloads, malfunctions, sound, and line-of-fire safety. Touch aiming uses configurable assistance without becoming automatic. Show attack direction and allied-fire warnings. The server validates range, timing, position, line of sight, ammunition, fire rate, reload state, ownership, and damage.
+
+INFECTED AI, SOUND, STEALTH
+
+Use one coherent fictional infection rather than fantasy monster classes. Infected have vision, hearing, limited memory, investigation, wandering, pursuit, group accumulation, obstacle attacks, falling/crawling, door/window interaction, target loss, environmental attraction, and regional migration.
+
+Use perception, memory, threat selection, movement request, local avoidance, attacks, animation state, server validation, and off-screen aggregation. Scale with spatial partitioning, navigation regions, path budgets, staggered updates, flow fields where useful, cached routes, local steering, object pools, simplified distant agents, and horde-level simulation.
+
+Sound events contain source, position, intensity, type, duration, occlusion, indoor/outdoor state, creator, and timestamp. Account for walls, doors, windows, elevation, forests, weather, repeated noise, and competing sources. The server determines which infected receive sound events.
+
+Visibility and stealth consider lighting, weather, distance, movement, cover, facing, posture, obstacles, surfaces, footwear, carried mass, injuries, and equipment noise. Provide readable cues without an exact omniscient detection meter.
+
+BASES, CRAFTING, UTILITIES, AND FIRE
+
+Allow barricades, reinforced doors, furniture movement, walls, gates, floors, stairs if supported, storage, collectors, farms, lighting, electrical connections, workstations, repair, dismantling, labels, and escape routes. Structures track material, health, support, owner permissions, quality, fire response, collision, navigation, persistence, and damage stages. Prevent floating builds, blocked critical spawns, unreachable traps, invalid placement, dismantling duplication, and unlimited spam.
+
+Use data-driven recipes with tools, ingredients, partial consumption, skills, station, time, noise, light, power, heat, quality, failure, by-products, wear, cancellation, and multiplayer reservation rules.
+
+Electricity begins available or unstable and eventually fails. Refrigeration, lights, alarms, pumps, chargers, and equipment depend on it. Generators consume fuel, deteriorate, produce sound and hazardous fumes, and have limited load. Water pressure declines; stored fixture water remains; wells, rain, natural sources, storage, and purification become important.
+
+Fire includes ignition, fuel, duration, spread, materials, smoke, heat, injuries, building damage, extinguishing, reduced off-screen simulation, persistence, and anti-grief limits.
+
+FARMING AND LONG-TERM SURVIVAL
+
+Farming considers seed, season, soil, water, light, temperature, growth, disease, care, harvest quality, and seed recovery. Use timestamp progression. Fishing and trapping depend on place, time, weather, equipment, bait, skill, depletion, and exposure. Renewable systems should support long-term survival without making scavenging worthless.
+
+VEHICLES
+
+Initially provide an original compact car, utility vehicle, delivery van, and light truck. Vehicles track engine, battery, fuel, tires, body, windows, doors, lights, storage, seats, ignition, keys/starting methods, sound, collisions, occupants, parts, repairs, permissions, and persistence.
+
+Touch driving uses virtual steering, throttle, brake/reverse, optional handbrake, horn, lights, exit, and camera assistance. Prioritize stable arcade-simulation handling and synchronization over complex realism. The server validates vehicle movement while the owner client predicts for responsiveness.
+
+MULTIPLAYER
+
+Hard cap each world at 10 concurrent players initially. Use one persistent world per server, server authority, invite-only/private servers at first, optional password, configurable PvP/friendly fire, persistent characters, containers, structures, vehicles, world damage, backups, logs, and admin tools.
+
+Use WebSockets, snapshot interpolation, local movement prediction, server reconciliation, interest management, delta compression, sequence numbers, rate limits, reconnect tokens, heartbeats, duplicate-session prevention, idempotent inventory operations, protocol versions, save versions, and schema migrations.
+
+Begin near 20 server ticks per second and 10-15 network snapshots per second for relevant moving objects; use lower rates or event-driven updates for slow state. Profile instead of treating these as fixed truths.
+
+Interest management considers position, floor, visibility, audibility, vehicles, groups, and current interactions. Never broadcast the whole world to every player.
+
+Cooperation includes invitations, groups, safehouse/container/vehicle permissions, markers, text chat, local/radio communications, nearby status, treatment help, cooperative construction, trade, gifting, and shared-storage logs. Do not reveal global teammate positions by default.
+
+Support PvE, consent PvP, open PvP, faction PvP, and safehouse modes. Prevent spawn killing, danger-disconnect abuse, trade duplication, wall theft, impossible attacks, client-forged damage, vehicle teleportation, and permission exploits. Log item creation/transfer, deaths, destruction, ownership changes, suspicious movement, failed validation, and admin commands.
+
+DEATH AND CONTINUITY
+
+Death ends the character. Inventory and the body remain; infected characters may reanimate; the player creates a new character in the same world; skills do not transfer by default; bases persist; others can recover belongings. Show an original death summary with survival time, travel, kills, injuries, cause, skills, construction, and notable events.
+
+WEATHER, EVENTS, UI, MAP, AND AUDIO
+
+Implement day/night, sunrise/sunset, clouds, rain, storms, fog, wind, temperature, seasons, and optional snow only after performance validation. Weather affects visibility, sound masking, wetness, temperature, farming, driving, fire, collection, and detection.
+
+Original world events can include distant gunfire, failed evacuation, crashes, alarms, utility failures, storm damage, emergency broadcasts, convoy remains, fires, migrating hordes, camps, aircraft, machinery, and radio messages. Events create sound, movement, investigation sites, blocked routes, loot changes, damage, and lore.
+
+Create an original touch UI for menus, servers, characters, settings, accessibility, inventory, health, skills, crafting, building, map, vehicle dashboard, containers, players, permissions, admin, and death. Use large controls, scalable text, consistent gestures, search/filtering, color-blind-safe states, reduced motion, and confirmations only for destructive actions.
+
+The map supports pan/zoom, notes, marker categories, touch drawing, erasing, discovered roads, group sharing, and optional discovery fog. No perfect global tracking by default.
+
+Audio includes positional infected, occlusion, interior/exterior filters, weather, footsteps, clothing, impacts, vehicles, alarms, electricity, fire, distant events, restrained dynamic music, separate volume controls, and accessible visual alternatives. Use only original or properly licensed audio.
+
+TECHNOLOGY STACK
+
+Client:
+- TypeScript
+- React for menus and interface, never high-frequency simulation
+- PixiJS for the world renderer
+- Vite
+- Lightweight client UI state such as Zustand
+- IndexedDB for settings and recoverable cache
+- Service worker and web manifest for PWA behavior
+
+Server:
+- Node.js and strict TypeScript
+- Fastify or Express
+- WebSocket transport
+- Dedicated authoritative game loop
+- Zod or equivalent runtime validation
+- Structured logging, rate limiting, health checks, graceful shutdown, and save flushing
+
+Services:
+- Supabase PostgreSQL
+- Supabase Auth
+- Supabase Storage for approved static/user content
+- Vercel for the frontend
+- Render for the persistent WebSocket server
+- Redis only when testing demonstrates a real need
+
+Do not assume free tiers are production-ready. Document when paid compute is necessary.
+
+MONOREPO
+
+Use:
+- apps/client
+- apps/game-server
+- apps/admin
+- packages/protocol
+- packages/game-data
+- packages/simulation
+- packages/shared
+- packages/config
+- packages/testing
+- packages/tools
+- assets/source
+- assets/processed
+- docs
+- infrastructure
+
+Explain package boundaries, server-only logic, validation, protocol versions, asset processing, migrations, secrets, and CI.
+
+DATA AND SAVE ARCHITECTURE
+
+Separate static definitions, runtime entities, persistent state, temporary effects, client presentation, and server authority. Create schemas for users, servers, memberships, characters, conditions, skills, inventories, items, containers, structures, doors/windows, vehicles/parts, chunks, active/aggregate infected, farms, utilities, fires, groups, permissions, chat metadata, admin actions, snapshots, events, and migration versions.
+
+Use stable IDs, constraints, transactions, optimistic concurrency where useful, idempotency keys, version columns, audit trails, retention rules, dirty-chunk tracking, periodic snapshots, meaningful event records, save queues, graceful shutdown, startup recovery, backup rotation, corruption detection, migrations, and rollback. Never store every frame in PostgreSQL.
+
+SERVER AUTHORITY AND SECURITY
+
+The client never decides damage, loot generation, ownership, crafting results, vehicles, health, skill gain, infected death, construction completion, container contents, teleportation, or admin rights.
+
+Every message includes protocol version, type, authenticated session, sequence, validated payload, timestamp policy, authorization, and rate limit. Protect against flooding, large/malformed payloads, replay, duplication, impossible movement, invalid combat, unauthorized access, building cheats, time manipulation, XSS in chat/labels, SQL injection, object authorization failures, leaked service keys, and save corruption.
+
+PERFORMANCE AND IPAD REQUIREMENTS
+
+Primary target: stable 30 FPS minimum under heavy activity and preferably 60 FPS during normal exploration on a real iPad 10. Prefer consistent 30 FPS over an unstable 60 FPS claim.
+
+Use object pools, atlases, compatible texture compression, chunk streaming, culling, batching, LOD, reduced update frequencies, memory budgets, audio pools, manifests, lazy loading, and workers only where justified.
+
+Provide a diagnostics overlay for FPS, frame time, draw calls, visible sprites, active infected, latency, traffic, chunks, texture estimate, heap estimate where available, and server tick time.
+
+Implement manifest, icons, controlled service-worker caching, safe-area layout, landscape preference, update notification, background/resume reconnection, audio resume after interaction, offline menus/settings only, and no false offline multiplayer promise. Account for Safari tab suspension, interrupted sockets, memory pressure, and browser storage limits. The authoritative server prevents local-cache loss from erasing world data.
+
+ASSETS
+
+Use only original or properly licensed commercial-use assets. Keep an asset register with source, creator, license, attribution, modifications, export settings, and final paths. Build pipelines for tiles, sprite sheets, characters, clothing, items, props, vehicles, infected, effects, UI, audio, and music. Never scrape or extract content from games, wikis, videos, screenshots, mods, or fan projects.
+
+TESTING
+
+Unit-test transfers, capacity, damage, spoilage, medical progression, skill gain, crafting, building costs, vehicle parts, utilities, and world time.
+
+Integration-test authentication, joining, loading, reconnection, container concurrency, trade, death, chunks, vehicles, and restart recovery.
+
+Simulate 10 players, rapid transfers, concurrent containers, combat latency, passengers, disconnect during crafting/trade, restart, delay, packet loss, duplicates, and out-of-order messages.
+
+Test on a physical iPad 10 in Safari and PWA mode under normal/poor Wi-Fi, low-power mode, background/resume, thermal load, long sessions, and memory pressure. Desktop emulation is insufficient.
+
+OBSERVABILITY AND ADMIN
+
+Add structured logs, crash reports, server tick metrics, connections, memory, database latency, saves, chunks, and suspicious actions. Build a protected admin interface for players, moderation, controlled teleport, events, backups, settings, logs, lookups, health, and rollback. Enforce every permission server-side and log every admin action.
+
+SERVER SETTINGS
+
+Support max players capped at 10, password/invites, PvP, friendly fire, day length, season, weather, scarcity, loot respawn, infected population/respawn/migration/speed/strength, infection rules, permadeath, sleep, utilities, vehicle/fuel scarcity, farming, construction limits, fire, safehouses, and admin roles. Include Accessible, Standard, Severe, and Custom presets.
+
+ORIGINALITY REVIEW
+
+Before approving a feature, determine whether it is a broad genre convention or a distinctive implementation; verify original names, UI, balance, visuals, map, text, assets, and setting; and document independent creation. Redesign anything too close in presentation, terminology, interaction, balance, or world context.
+
+DEVELOPMENT PHASES
+
+Phase 0: Architecture/prototype
+- Repository, protocol, PixiJS test, touch movement, one chunk, player, basic WebSocket, diagnostics, PWA shell.
+- Exit: works on physical iPad 10, responsive controls, background/resume handled, no major 30-minute leak.
+
+Phase 1: Core vertical slice
+- Small neighborhood, inventory, containers, loot, needs, health, infected AI, melee, death, save.
+- Exit: meaningful 30-60 minute session; no duplication/erasure after reconnect; no keyboard required.
+
+Phase 2: Ten-player multiplayer
+- Auth, rooms, persistence, synchronization, concurrency, groups, text, reconnect, admin.
+- Exit: 10 test clients; no known duplication; acceptable simulated-latency movement; restart preservation.
+
+Phase 3: Detailed survival
+- Medicine, spoilage, cooking, clothing, temperature, weather, skills, loot, sound, better AI.
+
+Phase 4: Bases/utilities
+- Barricades, construction, farms, electricity, water, generators, fire, permissions.
+
+Phase 5: Vehicles/larger world
+- Vehicle networking, repairs, fuel, storage, rural/industrial expansion, improved streaming/horde aggregation.
+
+Phase 6: Content/polish
+- More items/buildings/events, lore, audio, accessibility, onboarding, balance, optimization, long sessions.
+
+REQUIRED FIRST RESPONSE
+
+Your first response must provide:
+1. Concise statement of original identity
+2. Recommended projection/rendering approach
+3. Text architecture diagram
+4. Client/server responsibility table
+5. Monorepo structure
+6. Networking model
+7. World chunk format
+8. Database schema overview
+9. Core shared TypeScript interfaces
+10. Touch-control specification
+11. iPad 10 performance budget
+12. Security model
+13. Save/recovery model
+14. Twelve-week vertical-slice roadmap
+15. First-milestone acceptance tests
+16. Major technical risks
+17. Real-iPad validation decisions
+18. Exact first files to create
+
+End with a numbered implementation sequence. Do not use vague promises. Give techniques, flows, validation rules, measurable targets, and tests.
+
+IMPLEMENTATION BEHAVIOR
+
+After architecture, implement only small testable milestones. For each milestone:
+1. State objective.
+2. List files changed.
+3. Provide complete code, not fragments.
+4. Include install commands.
+5. List environment-variable names without secret values.
+6. Include migrations.
+7. Include tests.
+8. Include run instructions.
+9. Include verification and expected results.
+10. Include persistence rollback where needed.
+11. Update the checklist.
+12. Stop after one coherent milestone.
+
+Never claim unrun code was tested, invent package APIs, hide essential logic behind TODO comments, trust clients with authority, expose service keys, use inaccessible controls, use copyrighted assets, reproduce the PZ map, or trade stability for feature count.
+
+CODING STANDARD
+
+Use strict TypeScript, runtime validation, domain boundaries, small modules, clear names, data-driven content, deterministic server simulation where practical, structured errors, protocol versions, transactions, reproducible tests, linting, formatting, and CI.
+
+Avoid unbounded data/listeners, hot-loop allocation, giant classes, hidden global state, blocking server work, database queries in every tick, whole-world saves after tiny actions, and rendering invisible objects.
+
+FINAL QUALITY STANDARD
+
+The finished experience must deliver fear when entering unknown buildings, meaningful noise, satisfying shelter organization, injury and exhaustion consequences, long-term character investment, meaningful scavenging, cooperative planning for 10 players, persistent evidence of actions, detailed survival interactions, replayability, responsive iPad controls, stable browser performance, and a unique identity.
+
+Use Project Zomboid only as a benchmark for depth, consequence, emergent storytelling, and survival tension. Build an original game around iPad hardware, Safari, touch interaction, web deployment, and a small persistent multiplayer group.
+
+Start now with the required first response. Do not skip architecture or begin with random gameplay files before establishing protocol boundaries, simulation authority, persistence, performance budgets, and the first vertical slice.
