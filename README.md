@@ -1,84 +1,94 @@
-<div align="center">
+# Zomboid Web (iPad Survival Multiplayer) — Vertical Slice
 
-<img src="./Banner.svg" alt="PZ Online - Web Port" width="100%">
-**A planned browser-based port for iPad — survive together, straight from Safari.**
+Original, non-copyrighted survival game inspired by Project Zomboid. Touch-first, isometric, server-authoritative multiplayer (max 4 simultaneous). Target: iPad 10th gen Safari.
 
-![Status: planning](https://img.shields.io/badge/status-planning-orange?style=for-the-badge)
-![Target: iPad Safari](https://img.shields.io/badge/target-iPad%2010%20%2B%20Safari-168de2?style=for-the-badge)
-![Open development](https://img.shields.io/badge/development-open-7c5cff?style=for-the-badge)
+## Stack
+- Client: React + TypeScript + Vite + Three.js + Zustand
+- Server: Node.js + TypeScript + Colyseus 0.18 (`@colyseus/core`, `@colyseus/ws-transport`) + WebSockets
+- State: server owns the world (buildings, zombies, loot, players); client renders what the server says and predicts only its own movement
 
-*The Knox Country outbreak. A touchscreen. Your story.*
+## Prerequisites
+- Node.js 20+ (tested 26.x)
+- npm 10+
+- Windows: use `cmd /c` if PowerShell blocks npm scripts.
 
-</div>
-
----
-
-## The vision
-
-PZ Online aims to bring a **multiplayer Project Zomboid experience to the iPad as a web-based game**. The goal is to make it playable in Safari with touch-first controls, while preserving the tension, teamwork, and unpredictable survivor stories that make the game compelling.
-
-No app or playable build exists yet. This repository is in the planning stage; the features below are design goals, not promises of what is already implemented.
-
-> **Unofficial fan project:** PZ Online is not affiliated with or endorsed by The Indie Stone. Project Zomboid and its related marks belong to their respective owners. Any implementation and distribution must respect the rights of the original creators.
-
-## Built for the iPad
-
-| 👆 Touch first | 🌐 Runs in the browser | 📱 Mobile-ready |
-| --- | --- | --- |
-| Large, accessible controls with no keyboard requirement. | The target is Safari on iPad 10, with no native app install required. | Designed for unstable connections, reconnection, and iPad performance. |
-
-## Multiplayer, by design
-
-The planned experience follows a server-authoritative model: the server—not the player's device—decides important game outcomes.
-
-```mermaid
-flowchart LR
-    P["🎮 Player"] -->|touch input| W["🌐 iPad Safari"]
-    W <-->|validated actions and updates| S["🛡️ Authoritative game server"]
-    S <--> D[("💾 Persistent world")]
-    S <-->|shared world state| O["👥 Other survivors"]
+## Install
+```bash
+cd client && npm install
+cd ../server && npm install
 ```
 
-The diagram describes the intended direction, not a finished architecture.
+## Run (dev)
+Terminal 1 (server):
+```bash
+cd server && npm run dev
+```
+Terminal 2 (client):
+```bash
+cd client && npm run dev
+```
+Open http://localhost:5173. Start a second tab/browser to test two-player.
 
-### Design priorities
-
-- **Fair multiplayer:** Server-owned decisions for damage, inventory, loot, health, skills, crafting, and item ownership.
-- **Reliable sessions:** Reconnection support and resilience to unstable mobile internet.
-- **Safe by default:** Validate user input, protect secrets, prevent item duplication, rate-limit sensitive actions, and log administrative actions.
-- **iPad performance:** Target iPad 10 Safari; use chunk streaming and object pooling where appropriate, and profile before optimizing.
-- **Accessible controls:** Touch-first interactions, generous hit areas, and accessibility support.
-
-## Roadmap
-
-```text
-PLAN                 PROTOTYPE                PLAYTEST
-Define the scope  →  Build a small slice  →  Test on real iPads
+## Build
+```bash
+cd client && npm run build
+cd ../server && npm run build
 ```
 
-- [x] Write down the project goals and engineering guidelines
-- [ ] Define the first playable milestone
-- [ ] Choose the technical architecture and project license
-- [ ] Prototype touch controls and the browser game loop
-- [ ] Build multiplayer and persistence in testable milestones
-- [ ] Test reconnection, multiplayer edge cases, and real iPad performance
+## Smoke test (real multiplayer, no browser)
+```bash
+cd server && npm run dev        # in another terminal
+cd client && node smoke.mjs
+```
+Joins the room and asserts: state/buildings arrive, teleport and out-of-range hit/pickup are rejected, walking + pickup is confirmed by the server, melee kills and drains stamina, zombies can kill you and you respawn at full HP elsewhere.
 
-Progress will be driven by stability and verified testing—not feature count.
+## Pathfinding check (no server needed)
+```bash
+cd server && npm run build && node pathcheck.mjs
+```
+Asserts the A* grid can cross the map, routes around buildings instead of through them, survives an unreachable goal, and handles same-cell queries.
 
-## Get involved
+## Environment
+Client (`client/.env`):
+- `VITE_SERVER_URL` (default `ws://localhost:2567`)
 
-The project is early, so thoughtful feedback on scope, iPad controls, and the multiplayer experience is especially useful. Open an issue or start a discussion to share ideas.
+Server (`server/.env` or process env):
+- `PORT` (default `2567`)
 
-The current engineering principles are in [`PZ Online iPad/ai_guidelines.txt`](PZ%20Online%20iPad/ai_guidelines.txt). Code contributions can follow once the initial architecture, license, and contribution workflow are established.
+## Deploy (free-first)
+- Server: Render / Railway free tier or Fly.io. Set `PORT`. WebSocket support must be enabled (Render and Fly do this by default).
+- Client: Vercel / Netlify / GitHub Pages. Set `VITE_SERVER_URL` to the deployed `wss://` URL.
+- DB (later phases): Supabase free tier.
 
-## Open source
+## Controls
+- WASD or on-screen joystick: move
+- Attack: melee nearest zombie within 2.5 units (cost/cooldown depend on the weapon)
+- Pickup: nearest loot within 2.5 units (item is added when the server confirms)
+- Equip: tap a weapon chip in the inventory panel (top right); you can only equip weapons you have picked up
+- Death: you respawn at a random open spot after 5 s
 
-Open development is the goal, but **the repository does not have a license yet**. A license is needed before others can confidently reuse, modify, or distribute the project. Choosing one and documenting the contribution process are early milestones.
+## Combat
+| Weapon | Damage | Cooldown | Stamina | Knockback | Stagger |
+|--------|--------|----------|---------|-----------|---------|
+| Fists (start) | 14 | 450 ms | 12 | 0.4 | — |
+| Knife | 30 | 380 ms | 10 | 0.15 | — |
+| Bat | 24 | 620 ms | 18 | 1.4 | 700 ms |
+| Axe | 40 | 850 ms | 26 | 0.7 | — |
 
----
+Zombies have 50 HP. Blunt knockback shoves the zombie and (bat) freezes it briefly, cancelling its cached path; bladed weapons trade control for damage. Numbers live in `server/src/weapons.ts`; the client mirrors only label + stamina cost in `client/src/weapons.ts` (the server stays authoritative).
 
-<div align="center">
+## Architecture notes
+- `server/src/world.ts` generates the building map deterministically and is the single source of truth; the client receives buildings through schema state.
+- Movement, hit and pickup messages are validated server-side (distance, cooldown, stamina, per-message max step).
+- Server schema uses Colyseus schema decorators, which require `experimentalDecorators: true` **and** `useDefineForClassFields: false` in `server/tsconfig.json`. Removing either silently breaks state encoding.
 
-**A small screen. A big world. Nobody survives alone.**
+## Troubleshooting
+- PowerShell "running scripts disabled": use `cmd /c "npm ..."`.
+- Port 2567 in use / `EADDRINUSE`: a stale dev server is still running. `Get-NetTCPConnection -LocalPort 2567 -State Listen | Select OwningProcess` then `Stop-Process -Id <pid> -Force`. Two servers on one port means clients hit an old schema.
+- `seat reservation expired` / `404` on matchmaking: the client SDK and server must be on the same Colyseus major (both 0.18 here), and the server must start via `gameServer.listen(port)` so `/matchmake` routes are registered.
+- State desync or `Symbol.metadata` crash: check `server/tsconfig.json` has both decorator flags above.
+- Safari WebGL: ensure hardware acceleration on; the renderer already caps pixel ratio at 2.
+- No multiplayer: confirm server running and `VITE_SERVER_URL`.
 
-</div>
+## Status
+See `STATUS.md`.
