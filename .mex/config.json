@@ -1,0 +1,10 @@
+{
+  "setupMode": "code-repo",
+  "aiTools": [
+    "codex"
+  ],
+  "scaffold_id": "63ed49e0-210d-43e0-997e-7d20093f00af",
+  "scaffold_name": "PZ-Online",
+  "origin": null,
+  "upstream": null
+}

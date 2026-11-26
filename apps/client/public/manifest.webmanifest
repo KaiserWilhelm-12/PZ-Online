@@ -1,0 +1,27 @@
+{
+  "name": "Lanternfall",
+  "short_name": "Lanternfall",
+  "description": "An original iPad-first zombie-survival sandbox for the web.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#151a17",
+  "theme_color": "#151a17",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

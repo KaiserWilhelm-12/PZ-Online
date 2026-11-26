@@ -173,3 +173,40 @@ $RECYCLE.BIN/
 # the project root. Anchored so a reports/ folder elsewhere stays tracked.
 /reports/
 /test-results/
+
+# === Node and Package Manager ===
+.pnpm-store/
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+.vite/
+*.tsbuildinfo
+
+# test output
+coverage/
+test-results/
+playwright-report/
+
+# tooling cache
+.turbo/
+.eslintcache
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+logs/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.desktop.ini
+.idea/
+.vscode/

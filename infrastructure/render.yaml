@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: lanternfall-game-server
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @lanternfall/game-server build
+    startCommand: node apps/game-server/dist/main.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080
+      - key: LOG_LEVEL
+        value: info
+      - key: SERVER_ID
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_JWKS_URL
+        sync: false
+      - key: SUPABASE_JWT_ISSUER
+        sync: false
+      - key: SUPABASE_JWT_AUDIENCE
+        sync: false
+      - key: DEV_AUTH_ENABLED
+        value: 'false'
+      - key: HELLO_TIMEOUT_MS
+        value: 5000
+      - key: HEARTBEAT_INTERVAL_MS
+        value: 5000
+      - key: DEAD_TIMEOUT_MS
+        value: 15000
+      - key: SWEEP_INTERVAL_MS
+        value: 1000
+      - key: RECONNECT_GRACE_MS
+        value: 120000
+      - key: TICK_RATE_HZ
+        value: 20
+      - key: MAX_PAYLOAD_BYTES
+        value: 8192
+      - key: MAX_PLAYERS
+        value: 10
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: METRICS_ENABLED
+        value: 'false'

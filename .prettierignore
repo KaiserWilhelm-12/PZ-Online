@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.turbo
+pnpm-lock.yaml
+apps/client/public/sw.js
+docs/architecture.md
+.agents
+.mex
+.harness2
+.specify
+.opencode/commands
+knowledge
+AGENTS.md
+.zvec-grep
