@@ -199,6 +199,23 @@ describe('ServerEnvelope', () => {
         type: 'welcome',
         playerId,
         characterId,
+        entityId: 7,
+        worldTimeSec: 0,
+        tickRate: 20,
+        reconnectToken: 'token',
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a legacy welcome without an entity id', () => {
+    const result = ServerEnvelope.safeParse({
+      v: PROTOCOL_VERSION,
+      ss: 0,
+      msg: {
+        type: 'welcome',
+        playerId,
+        characterId,
         worldTimeSec: 0,
         tickRate: 20,
         reconnectToken: 'token',

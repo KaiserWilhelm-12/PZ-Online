@@ -12,7 +12,7 @@
   "dependencies": {
     "@lanternfall/protocol": "workspace:*",
     "@lanternfall/shared": "workspace:*",
-    "pixi.js": "^8.6.0",
+    "phaser": "4.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -16,7 +16,7 @@ edges:
   - target: patterns/INDEX.md
     condition: when the task matches an existing project pattern
 grounds_to: []
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 mex:
   id: mx_01M88NM5F10AJHP932SWKB9152
   type: convention
@@ -66,7 +66,7 @@ mex:
   (`packages/protocol/test/*.test.ts`, `apps/game-server/test/*.test.ts`).
 - Shared test setup comes from `@lanternfall/config/vitest`; do not hand-roll a
   second Vitest config.
-- `apps/client/src/runtime/game.ts` is loaded as a lazy chunk; keep Pixi imports
+- `apps/client/src/runtime/game.ts` is loaded as a lazy chunk; keep Phaser imports
   out of `ui/` and `apps/client/src/main.tsx` so the shell paints before the renderer loads.
 
 ## Patterns

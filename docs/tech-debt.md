@@ -35,10 +35,13 @@ the shortcut is safe for public play.
 
 ## Simulation and networking
 
-7. **There is no simulation tick.** `TICK_RATE_HZ` is advertised in `welcome`,
-   but `input`, `inv.move`, `interact.*`, and `chat` are validated and then
-   discarded or answered with `NOT_IMPLEMENTED`. This is Milestone 1 scope, not
-   a playable game.
+7. **Movement is a minimal fixed-tick prototype.** The gateway advances
+   normalized input at its configured tick rate (20 Hz by default), stops
+   movement after 250 ms without fresh input, and broadcasts full snapshots of
+   active sessions with 1/16-tile coordinates. Entity IDs are kept in memory
+   through reconnect grace only; there is no collision, prediction/reconciliation,
+   interpolation, world/interest isolation, or movement persistence. `inv.move`,
+   `interact.*`, and `chat` remain unimplemented.
 8. **Reconnect restores a token, not a character.** The 120 s grace window only
    protects the token. There is no world state, safe sleeping state, or
    combat-logging rule yet; those arrive with simulation and persistence.
@@ -60,14 +63,14 @@ the shortcut is safe for public play.
 
 ## Client and rendering
 
-13. **One procedural chunk, no streaming.** The scene is a single generated
-    32×32-tile chunk drawn with Pixi `Graphics`. There is no chunk compiler,
-    culling, atlas, or texture budget yet. Replace the generated scene in
-    Milestone 2 and add measured budgets before art volume grows.
-14. **Draw-call telemetry monkey-patches WebGL methods.** It provides a useful
-    number today but is coupled to renderer internals and does not cover
-    WebGPU. Replace with first-party Pixi metrics or an engine-agnostic
-    instrumentation layer. (`apps/client/src/runtime/game.ts`)
+13. **One generated isometric showcase, no streaming.** The Phaser scene draws
+    a geometric 32×32-tile neighborhood, one house, and a selectable tile
+    highlight. There is no authored
+    asset pipeline, chunk compiler, culling, atlas, or texture budget yet.
+14. **Draw-call telemetry monkey-patches WebGL methods.** It is coupled to
+    Phaser renderer internals and will not work with non-WebGL rendering.
+    Replace it with stable engine metrics or a separate instrumentation layer
+    before relying on it for performance acceptance.
 15. **Diagnostics are desktop-verified only.** FPS, heap, and draw calls were
     observed in desktop Chromium. Safari/iPad memory reporting, thermal
     throttling, and canvas resolution behavior remain unmeasured.
@@ -82,9 +85,10 @@ the shortcut is safe for public play.
     `/ws` in development. Production needs a static host plus an explicit
     `VITE_GAME_SERVER_URL`, or a reverse proxy that serves both. The Render
     blueprint currently deploys only the game server.
-19. **The main client chunk is 544 KB minified (165 KB gzip).** It is within the
-    total budget, but Pixi and React are bundled together. Add manual chunking
-    and measure startup on an iPad before adding more UI.
+19. **Phaser is a large deferred renderer chunk.** It is kept out of the initial
+    React shell by a dynamic import, but still adds substantial download and
+    parse work when gameplay starts. Re-measure the production bundle and
+    startup on an iPad before adding more UI or assets.
 20. **No audio system.** Audio unlock, interruption, and resume are Milestone 2+
     work.
 
@@ -96,8 +100,9 @@ the shortcut is safe for public play.
 22. **No browser or end-to-end test in CI.** The live browser check was manual.
     Add Playwright with a mocked or ephemeral game server once the client has
     stable gameplay flows.
-23. **No database, migrations, or ledger.** Milestone 5 work. CI intentionally
-    has no Postgres service yet.
+23. **No database, migrations, or ledger.** PostgreSQL is the selected target,
+    but schema, migrations, repository code, CI service, and integration tests
+    have not been implemented.
 24. **No license.** The repository remains unlicensed, which blocks confident
     reuse and contribution. Choose a license before accepting outside code.
 25. **Single-node only.** Sessions, reconnect grants, and rate limits are

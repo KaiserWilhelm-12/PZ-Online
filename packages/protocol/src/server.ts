@@ -61,6 +61,7 @@ export const ServerMessage = z.discriminatedUnion('type', [
     type: z.literal('welcome'),
     playerId: uuid,
     characterId: uuid.nullable(),
+    entityId: nat.optional(),
     worldTimeSec: z.number().nonnegative(),
     tickRate: z.number().int().positive(),
     reconnectToken: z.string().min(1).max(128),

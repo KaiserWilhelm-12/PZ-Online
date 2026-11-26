@@ -6,10 +6,16 @@ import {
   type ServerEnvelope,
   type ServerMessage,
 } from '@lanternfall/protocol';
+import { quantizeToSixteenth } from '@lanternfall/shared';
 import { DEFAULT_RATE_LIMITS, MessageRateLimiter, type RateLimitRule } from './rate-limit';
+
+const INPUT_TIMEOUT_MS = 250;
+const MOVE_SPEED_TILES_PER_SECOND = 3;
+const WORLD_LIMIT_TILES = 16;
 
 export interface SessionSnapshot {
   id: string;
+  entityId: number;
   playerId: string;
   characterId: string;
   displayName: string | null;
@@ -25,8 +31,17 @@ export class GameSession {
   lastSeenAt: number;
   lastSequence = -1;
   private outboundSequence = 0;
+  private positionX = 0;
+  private positionY = 0;
+  private moveX = 0;
+  private moveY = 0;
+  private facing = 0;
+  private lastInputAt: number;
+  private lastReceivedInputSequence = -1;
+  lastInputSequence = 0;
 
   constructor(
+    readonly entityId: number,
     readonly playerId: string,
     readonly characterId: string,
     readonly displayName: string | null,
@@ -36,6 +51,7 @@ export class GameSession {
   ) {
     this.connectedAt = clock();
     this.lastSeenAt = this.connectedAt;
+    this.lastInputAt = this.connectedAt;
     this.limiter = new MessageRateLimiter(clock, {
       ...DEFAULT_RATE_LIMITS,
       ...rateLimitRules,
@@ -68,9 +84,51 @@ export class GameSession {
     this.lastSeenAt = this.clock();
   }
 
+  setInput(moveX: number, moveY: number, facing: number, sequence: number): boolean {
+    if (sequence <= this.lastReceivedInputSequence) {
+      return false;
+    }
+    this.lastReceivedInputSequence = sequence;
+    this.moveX = moveX;
+    this.moveY = moveY;
+    this.facing = facing;
+    this.lastInputSequence = sequence;
+    this.lastInputAt = this.clock();
+    return true;
+  }
+
+  advance(fixedStepMs: number): void {
+    if (this.clock() - this.lastInputAt > INPUT_TIMEOUT_MS) {
+      this.moveX = 0;
+      this.moveY = 0;
+    }
+
+    const length = Math.hypot(this.moveX, this.moveY);
+    const normalizedX = length > 0 ? this.moveX / length : 0;
+    const normalizedY = length > 0 ? this.moveY / length : 0;
+    const distance = (fixedStepMs / 1000) * MOVE_SPEED_TILES_PER_SECOND;
+    this.positionX = Math.max(
+      -WORLD_LIMIT_TILES,
+      Math.min(WORLD_LIMIT_TILES, this.positionX + normalizedX * distance),
+    );
+    this.positionY = Math.max(
+      -WORLD_LIMIT_TILES,
+      Math.min(WORLD_LIMIT_TILES, this.positionY + normalizedY * distance),
+    );
+  }
+
+  snapshotPosition(): { x: number; y: number; facing: number } {
+    return {
+      x: quantizeToSixteenth(this.positionX),
+      y: quantizeToSixteenth(this.positionY),
+      facing: this.facing,
+    };
+  }
+
   snapshot(): SessionSnapshot {
     return {
       id: this.id,
+      entityId: this.entityId,
       playerId: this.playerId,
       characterId: this.characterId,
       displayName: this.displayName,

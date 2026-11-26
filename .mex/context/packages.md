@@ -18,7 +18,7 @@ edges:
   - target: context/client.md
     condition: when a client message schema changes
 grounds_to: []
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 mex:
   id: mx_01M88SV6KFDDEH3R3W2YEVSD0V
   type: component
@@ -451,7 +451,7 @@ grounds_to:
 -->
 ## Server replies carry sequences and typed payloads
 
-ServerEnvelope pins v to PROTOCOL_VERSION and adds a monotonic ss, while ServerMessage covers welcome with a reconnectToken, snapshot with ackInput, inv.result with container versions, sound, pong echoing t and error with a fatal flag.
+ServerEnvelope pins v to PROTOCOL_VERSION and adds a monotonic ss, while ServerMessage covers welcome with a reconnectToken and optional entityId, snapshot with ackInput and entity coordinates in 1/16-tile units, inv.result with container versions, sound, pong echoing t and error with a fatal flag. The optional entityId preserves parsing compatibility with older welcome messages.
 
 <!-- mex:entity
 id: mx_01M88SV6T494F2GFADVP99QFMX

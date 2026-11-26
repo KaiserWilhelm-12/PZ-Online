@@ -15,7 +15,7 @@ edges:
 # Broad inventory: ground only claims embodied by a small number of symbols.
 # Entry shape: { node: "function:<tier-1-id>" } (MEX records the fingerprint)
 grounds_to: []
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 mex:
   id: mx_01M88NM5FJZYQPPCE2FA3SE2VF
   type: architecture
@@ -47,8 +47,8 @@ mex:
 - **pnpm 9.15.0 workspaces + Turborepo 2** — `apps/*` and `packages/*`; Turbo
   orchestrates `dev`, `build`, and `typecheck`.
 - Fastify 5 with `ws` for WebSockets — HTTP endpoints and the WebSocket gateway in one process.
-- **React 19 + Vite 6** — client shell, with PixiJS 8 loaded as a separate
-  bootstrap chunk.
+- **React 19 + Vite 6** — client shell, with Phaser 4.2.1 loaded as a separate
+  game-renderer chunk.
 - **Vitest 2** — unit and integration tests across all workspaces.
 
 ## Key Libraries
@@ -57,8 +57,8 @@ mex:
   `packages/protocol`; parse before acting and infer types with `z.infer`.
 - jose (JWT library) — JWT verification (HS256 secret or remote JWKS) and development
   token signing; do not add a second JWT library.
-- **PixiJS 8 (not Canvas 2D / raw WebGL)** — all world rendering; the runtime
-  counts draw calls by wrapping `gl.draw*`.
+- **Phaser 4.2.1** — isometric world rendering; draw-call telemetry currently
+  wraps WebGL calls and must be treated as renderer-coupled diagnostics.
 - **dependency-cruiser** — enforces package boundaries and forbids circular
   imports; `dist` is excluded so built output is not inspected.
 - tsup (server bundler) — bundles the server to `dist/`; library packages only run
@@ -66,10 +66,10 @@ mex:
 
 ## What We Deliberately Do NOT Use
 
-- **No ORM or database yet** — session state is in-memory; persistence is a
-  later milestone, not a Milestone 1 change.
-- **No client-side authority** — no local movement simulation, no client-side
-  loot rolls, no optimistic inventory mutation.
+- **No ORM or database installed yet** — PostgreSQL is the selected persistence
+  target; session state remains in-memory until migrations and repositories land.
+- **Server-authoritative prototype movement** — client prediction, collision,
+  inventory mutation, and client-side loot generation are not implemented.
 - **No Redux/Zustand** — the shell uses React state plus plain classes for
   socket and runtime ownership.
 - **No CSS framework** — hand-written CSS with custom properties and safe-area

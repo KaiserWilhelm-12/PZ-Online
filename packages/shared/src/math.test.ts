@@ -9,6 +9,9 @@ import {
   quantizeToSixteenth,
   radToDeg,
   shortestAngleDifference,
+  screenToTile,
+  worldToScreen,
+  screenToWorld,
 } from './math';
 
 describe('clamp', () => {
@@ -63,5 +66,40 @@ describe('angles', () => {
   it('finds the shortest wrapped difference', () => {
     expect(shortestAngleDifference(0, Math.PI / 2)).toBeCloseTo(Math.PI / 2);
     expect(shortestAngleDifference(Math.PI * 1.9, Math.PI * 0.1)).toBeCloseTo(Math.PI * 0.2);
+  });
+});
+
+describe('isometric projection', () => {
+  const projection = {
+    tileWidth: 64,
+    tileHeight: 32,
+    originX: 500,
+    originY: 100,
+  };
+
+  it('projects world coordinates onto the diamond grid', () => {
+    expect(worldToScreen(10, 4, projection)).toEqual({ x: 692, y: 324 });
+  });
+
+  it('round-trips world and screen coordinates', () => {
+    const screen = worldToScreen(7.25, -3.5, projection);
+    const world = screenToWorld(screen.x, screen.y, projection);
+    expect(world.x).toBeCloseTo(7.25);
+    expect(world.y).toBeCloseTo(-3.5);
+  });
+
+  it('picks the nearest tile center in screen space', () => {
+    const screen = worldToScreen(3.2, -4.1, projection);
+    expect(screenToTile(screen.x, screen.y, projection)).toEqual({ x: 3, y: -4 });
+
+    const screenNearDiagonal = worldToScreen(0.4, 0.6, projection);
+    expect(screenToTile(screenNearDiagonal.x, screenNearDiagonal.y, projection)).toEqual({
+      x: 0,
+      y: 0,
+    });
+  });
+
+  it('rejects invalid projection dimensions', () => {
+    expect(() => worldToScreen(1, 1, { ...projection, tileWidth: 0 })).toThrow(RangeError);
   });
 });

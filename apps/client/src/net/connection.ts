@@ -69,6 +69,7 @@ export class GameConnection {
   private socket: WebSocket | null = null;
   private status: ConnectionStatus = 'idle';
   private clientSequence = 0;
+  private inputSequence = 0;
   private reconnectAttempts = 0;
   private reconnectTimer: number | null = null;
   private heartbeatTimer: number | null = null;
@@ -117,6 +118,22 @@ export class GameConnection {
     this.socket = null;
     socket?.close(1000, 'Client stopped');
     this.setStatus('idle');
+  }
+
+  sendInput(moveX: number, moveY: number, facing: number, dtMs: number): void {
+    if (!this.socket) {
+      return;
+    }
+    this.send(this.socket, {
+      type: 'input',
+      seq: this.inputSequence,
+      dtMs,
+      moveX,
+      moveY,
+      facing,
+      flags: 0,
+    });
+    this.inputSequence += 1;
   }
 
   private connect(isRetry: boolean): void {
@@ -226,6 +243,7 @@ export class GameConnection {
       this.lastPongAt = Date.now();
       this.setStatus('connected');
       this.startHeartbeat(socket);
+      this.options.callbacks?.onMessage?.(message);
       this.publishNetwork();
       return;
     }

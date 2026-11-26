@@ -1,12 +1,12 @@
 ---
 name: client
-description: React + PixiJS PWA shell in apps/client. Load when changing connection lifecycle, diagnostics, the bootstrap scene, or dev sign-in.
+description: React + Phaser PWA shell in apps/client. Load when changing connection lifecycle, diagnostics, the isometric scene, or dev sign-in.
 triggers:
   - "client shell"
   - "websocket client"
   - "reconnect"
   - "diagnostics overlay"
-  - "pixi chunk"
+  - "phaser scene"
   - "dev sign-in"
 edges:
   - target: context/packages.md
@@ -18,7 +18,7 @@ edges:
   - target: patterns/debug-connection.md
     condition: when the client shows a connection error
 grounds_to: []
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 mex:
   id: mx_01M88T0K1SZXV9JKH71QCR12A3
   type: component
@@ -49,10 +49,15 @@ the service worker only in production. `resolveServerEndpoints` prefers
 hello/ping timers, latency and traffic accounting, exponential-backoff retries,
 and background suspend/resume. `requestDevSession` calls the server's
 development sign-in and keeps a stable test identity in `localStorage`.
-`GameRuntime` lazily initializes PixiJS, builds one deterministic 32x32-tile
-chunk with `createPrng` and `deriveSeed`, and feeds `DiagnosticsCollector` from
-the render ticker. `DiagnosticsOverlay` surfaces those numbers in the HUD.
-There is no client-side gameplay authority.
+`GameRuntime` lazily initializes Phaser 4.2.1, draws a deterministic 32x32-tile
+isometric neighborhood and geometric house using `createPrng` and `deriveSeed`,
+and feeds `DiagnosticsCollector` from the scene update loop. The React
+joystick sends sequenced movement through the existing WebSocket connection;
+the renderer displays all entities in server snapshots, follows the entity ID
+from welcome, removes entities absent from the latest full snapshot, and
+highlights tapped tiles. Snapshot positions are dequantized from 1/16-tile
+coordinates. `DiagnosticsOverlay` surfaces runtime and network metrics. Full
+prediction, reconciliation, interpolation, and collision are not implemented.
 
 <!-- mex:entity
 id: mx_01M88T0K14F91426XEKTT0M1V7

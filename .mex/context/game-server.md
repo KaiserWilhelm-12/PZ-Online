@@ -19,7 +19,7 @@ edges:
   - target: patterns/debug-connection.md
     condition: when diagnosing a rejected handshake or dropped socket
 grounds_to: []
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 mex:
   id: mx_01M88SYZDE4PCAB6J2BT60K8N2
   type: component
@@ -53,6 +53,14 @@ limits, monotonic sequence checks, session registration and takeover, reconnect
 tokens, and heartbeat eviction. `GameSession` wraps one socket with its outbound
 sequence and limiter; `SessionRegistry` and `ReconnectTokenStore` keep state in
 memory. Nothing here persists across a restart.
+
+The gateway runs a fixed-step simulation timer at the configured tick rate
+(20 Hz by default). Sessions accept increasing movement input sequences, stop
+stale movement after 250 ms, and emit positions quantized to 1/16 tile.
+Snapshots contain all active session entities and are sent to every connected
+session. Entity IDs are cached by character through the reconnect grace period,
+but remain in-memory only; there is no world/interest isolation, collision, or
+catch-up for missed ticks.
 
 <!-- mex:entity
 id: mx_01M88SYZCKMJBQCAWAEP96HBZ6

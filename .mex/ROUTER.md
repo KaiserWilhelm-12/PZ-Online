@@ -24,7 +24,7 @@ edges:
     condition: when a handshake, drop or reconnect failure needs diagnosis
   - target: context/knowledge-pairings.md
     condition: when checking code-to-knowledge pairings, query history links, or active work memory
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 ---
 
 # Session Bootstrap
@@ -38,7 +38,9 @@ Then read this file fully before doing anything else in this session.
 **Working:**
 
 - pnpm 9.15.0 monorepo with strict TypeScript, ESLint, Prettier, Turbo, Vitest,
-  dependency-cruiser, and a single `pnpm verify` gate that passed with 47 tests.
+  dependency-cruiser, and a single `pnpm verify` gate; last full verification
+  passed with 52 tests before fixed-tick replication. Latest focused client
+  typecheck and gateway/protocol tests pass (30 tests); the full gate is pending.
 - `@lanternfall/protocol` with Zod envelopes for every client/server message,
   fixtures, close codes, and protocol version 1.
 - `@lanternfall/shared` with branded ids, chunk helpers, clamped math, and a
@@ -46,14 +48,22 @@ Then read this file fully before doing anything else in this session.
 - Fastify game server with `/healthz`, `/readyz`, `/metrics`, development-only
   `/auth/dev`, JWT verification, hello deadline, rate limits, sequence checks,
   session takeover, rotating reconnect tokens, and heartbeat eviction.
-- React 19 + PixiJS 8 PWA shell with a generated bootstrap chunk, iPad-first HUD,
-  resilient WebSocket client with background suspend/resume, and diagnostics.
+- React 19 + Vite PWA shell with a dynamically loaded Phaser 4.2.1 isometric
+  renderer, iPad-first HUD, resilient WebSocket client with background
+  suspend/resume, touch joystick, and diagnostics.
+- Shared isometric transforms and tile picking, a geometric neighborhood
+  sample, and fixed-tick server-authoritative movement are implemented. The
+  gateway broadcasts snapshots of all active sessions, checks monotonic input
+  sequences, expires stale movement, quantizes positions to 1/16 tile, and
+  retains entity IDs through reconnect grace. The Phaser scene was verified in
+  headless Edge; physical iPad testing remains open.
 - Verified live: server health, dev sign-in, `hello → welcome`, `ping → pong`,
   `.env`-only boot, and client render/connection in Chromium.
 
 **Not yet built:**
 
-- Gameplay simulation: movement, combat, inventory, and persistence (Milestone 2+).
+- Movement prediction/reconciliation, collision, interpolation, combat,
+  inventory, and PostgreSQL persistence.
 - Production sign-in UI and Supabase client integration.
 - Database, Redis, background workers, and authoritative snapshots of a world.
 - Physical iPad Safari validation, GitHub Actions run, and Render deployment.
@@ -61,11 +71,13 @@ Then read this file fully before doing anything else in this session.
 **Known issues:**
 
 - Supabase production JWT verification is coded but unexercised against a live project.
+- The fixed-step timer does not catch up missed ticks; snapshots include every
+  active session without world isolation or spatial interest filtering.
 - Reconnect tokens live in `sessionStorage` and only in server memory; they are
   lost on server restart and do not survive a new tab.
 - `docs/architecture.md` is frozen by approval and excluded from Prettier.
-- Current gzipped bundle total is 250,969 B; the configured budget is 6 MiB, so
-  growth must stay under `scripts/check-bundle-size.mjs`.
+- Current gzipped client bundle total is 472,976 B; the configured budget is
+  6 MiB, enforced by `scripts/check-bundle-size.mjs`.
 - `mex check` previously flagged the undocumented `typecheck` and `depcruise`
   root scripts; `context/conventions.md` and `context/setup.md` now document both.
 
@@ -82,7 +94,7 @@ Load the relevant file based on the current task. Always load `context/architect
 | Setting up or running the project | `context/setup.md` |
 | Working on shared libraries, wire schemas or seeded math | `context/packages.md` |
 | Working on the Fastify/ws gateway or server config | `context/game-server.md` |
-| Working on the React/Pixi client shell | `context/client.md` |
+| Working on the React/Phaser client shell | `context/client.md` |
 | Any specific task | Check `patterns/INDEX.md` for a matching pattern |
 
 ## Behavioural Contract

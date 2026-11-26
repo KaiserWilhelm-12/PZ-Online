@@ -89,11 +89,18 @@ export class GameGateway {
   private wss: WebSocketServer | null = null;
   private httpServer: HttpServer | null = null;
   private sweepTimer: NodeJS.Timeout | null = null;
+  private simulationTimer: NodeJS.Timeout | null = null;
   private readonly connections = new Map<WebSocket, ConnectionContext>();
   private readonly sessions = new SessionRegistry();
   private readonly reconnectTokens: ReconnectTokenStore;
   private readonly metricsState = emptyMetrics();
   private readonly now: () => number;
+  private nextEntityId = 1;
+  private simulationTick = 0;
+  private readonly entityIdsByCharacter = new Map<
+    string,
+    { entityId: number; expiresAt: number }
+  >();
 
   constructor(private readonly config: GatewayConfig) {
     this.now = config.now ?? Date.now;
@@ -122,6 +129,10 @@ export class GameGateway {
       this.sweep();
     }, this.config.sweepIntervalMs);
     this.sweepTimer.unref();
+    this.simulationTimer = setInterval(() => {
+      this.simulateTick();
+    }, 1000 / this.config.tickRate);
+    this.simulationTimer.unref();
   }
 
   get attached(): boolean {
@@ -140,6 +151,10 @@ export class GameGateway {
     if (this.sweepTimer) {
       clearInterval(this.sweepTimer);
       this.sweepTimer = null;
+    }
+    if (this.simulationTimer) {
+      clearInterval(this.simulationTimer);
+      this.simulationTimer = null;
     }
     if (this.httpServer) {
       this.httpServer.off('upgrade', this.handleUpgrade);
@@ -335,7 +350,9 @@ export class GameGateway {
         session.send({ type: 'pong', t: message.t });
         break;
       case 'input':
-        // Movement simulation arrives in Milestone 2. Inputs are validated and accepted now.
+        if (!session.setInput(message.moveX, message.moveY, message.facing, message.seq)) {
+          this.metricsState.sequenceDrops += 1;
+        }
         break;
       case 'inv.move':
       case 'interact.begin':
@@ -404,7 +421,9 @@ export class GameGateway {
       this.sessions.removeBySocket(displaced.socket);
     }
 
+    const entityId = this.entityIdForCharacter(sessionCharacterId);
     const session = new GameSession(
+      entityId,
       identity.playerId,
       sessionCharacterId,
       identity.displayName,
@@ -412,6 +431,7 @@ export class GameGateway {
       this.now,
       this.config.rateLimitRules,
     );
+    this.nextEntityId += 1;
     this.sessions.add(session);
     context.session = session;
     context.state = 'ready';
@@ -423,6 +443,7 @@ export class GameGateway {
       type: 'welcome',
       playerId: identity.playerId,
       characterId: identity.characterId,
+      entityId: session.entityId,
       worldTimeSec: this.config.worldTimeSec?.() ?? 0,
       tickRate: this.config.tickRate,
       reconnectToken,
@@ -450,6 +471,77 @@ export class GameGateway {
         this.sendError(context, 'SESSION_TIMEOUT', true);
         this.closeContext(context, CloseCode.HeartbeatTimeout, 'Heartbeat timeout');
       }
+    }
+  }
+
+  private simulateTick(): void {
+    this.simulationTick += 1;
+    const sessions = this.sessions.all();
+    this.refreshEntityIds(sessions);
+    if (sessions.length === 0) {
+      return;
+    }
+
+    const fixedStepMs = 1000 / this.config.tickRate;
+    for (const session of sessions) {
+      session.advance(fixedStepMs);
+    }
+
+    const entities = sessions.map((session) => {
+      const position = session.snapshotPosition();
+      return {
+        id: session.entityId,
+        kind: 1,
+        x: position.x,
+        y: position.y,
+        z: 0,
+        facing: position.facing,
+        state: 0,
+        mask: 1,
+      };
+    });
+
+    for (const session of sessions) {
+      session.send({
+        type: 'snapshot',
+        id: this.simulationTick,
+        tick: this.simulationTick,
+        ackInput: session.lastInputSequence,
+        entities,
+        removed: [],
+      });
+    }
+  }
+
+  private entityIdForCharacter(characterId: string): number {
+    const now = this.now();
+    for (const [key, record] of this.entityIdsByCharacter) {
+      if (record.expiresAt <= now) {
+        this.entityIdsByCharacter.delete(key);
+      }
+    }
+    const existing = this.entityIdsByCharacter.get(characterId);
+    const entityId = existing?.entityId ?? this.nextEntityId++;
+    this.entityIdsByCharacter.set(characterId, {
+      entityId,
+      expiresAt: now + this.config.reconnectGraceMs,
+    });
+    return entityId;
+  }
+
+  private refreshEntityIds(sessions: readonly GameSession[]): void {
+    const now = this.now();
+    const activeCharacters = new Set(sessions.map((session) => session.characterId));
+    for (const [characterId, record] of this.entityIdsByCharacter) {
+      if (!activeCharacters.has(characterId) && record.expiresAt <= now) {
+        this.entityIdsByCharacter.delete(characterId);
+      }
+    }
+    for (const session of sessions) {
+      this.entityIdsByCharacter.set(session.characterId, {
+        entityId: session.entityId,
+        expiresAt: now + this.config.reconnectGraceMs,
+      });
     }
   }
 

@@ -41,7 +41,7 @@ project content:
 
 | Dependency        | License | Use                                      |
 | ----------------- | ------- | ---------------------------------------- |
-| PixiJS            | MIT     | WebGL/WebGPU rendering                   |
+| Phaser 4.2.1      | MIT     | Isometric WebGL game rendering           |
 | React / React DOM | MIT     | HUD and diagnostics UI                   |
 | Fastify           | MIT     | HTTP server                              |
 | `ws`              | MIT     | WebSocket server                         |

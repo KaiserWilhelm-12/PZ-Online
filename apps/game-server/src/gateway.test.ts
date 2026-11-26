@@ -143,7 +143,29 @@ class TestClient {
     this.queue.push(envelope);
   }
 
-  next(timeoutMs = 2000): Promise<ServerEnvelope> {
+  async next(timeoutMs = 2000): Promise<ServerEnvelope> {
+    return this.nextMatching((envelope) => envelope.msg.type !== 'snapshot', timeoutMs);
+  }
+
+  async nextSnapshot(timeoutMs = 2000): Promise<ServerEnvelope> {
+    return this.nextMatching((envelope) => envelope.msg.type === 'snapshot', timeoutMs);
+  }
+
+  private async nextMatching(
+    matches: (envelope: ServerEnvelope) => boolean,
+    timeoutMs: number,
+  ): Promise<ServerEnvelope> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const envelope = await this.takeNext(Math.max(1, deadline - Date.now()));
+      if (matches(envelope)) {
+        return envelope;
+      }
+    }
+    throw new Error('Timed out waiting for a matching server message');
+  }
+
+  private takeNext(timeoutMs: number): Promise<ServerEnvelope> {
     const queued = this.queue.shift();
     if (queued) {
       return Promise.resolve(queued);
@@ -316,6 +338,102 @@ describe('GameGateway handshake', () => {
     const pong = await client.next();
     expect(pong.msg).toEqual({ type: 'pong', t: 12345 });
   });
+
+  it('simulates movement on fixed ticks and replicates the same entities to clients', async () => {
+    const harness = await startGateway();
+    const first = await TestClient.connect(harness.url);
+    const second = await TestClient.connect(harness.url);
+    const firstWelcome = await first.hello();
+    const secondWelcome = await second.hello(
+      await tokenFor(
+        '33333333-3333-4333-8333-333333333333',
+        '44444444-4444-4444-8444-444444444444',
+      ),
+    );
+
+    if (firstWelcome.msg.type !== 'welcome' || secondWelcome.msg.type !== 'welcome') {
+      throw new Error('Expected both clients to receive welcome messages');
+    }
+    const firstEntityId = firstWelcome.msg.entityId;
+    const secondEntityId = secondWelcome.msg.entityId;
+    expect(firstEntityId).toBeDefined();
+    expect(secondEntityId).toBeDefined();
+    expect(firstEntityId).not.toBe(secondEntityId);
+
+    first.send(2, {
+      type: 'input',
+      seq: 0,
+      dtMs: 100,
+      moveX: 1,
+      moveY: 0,
+      facing: 64,
+      flags: 0,
+    });
+
+    let movingSnapshot: ServerEnvelope | undefined;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidate = await first.nextSnapshot();
+      if (
+        candidate.msg.type === 'snapshot' &&
+        candidate.msg.entities.some((entity) => entity.id === firstEntityId && entity.x > 0)
+      ) {
+        movingSnapshot = candidate;
+        break;
+      }
+    }
+    expect(movingSnapshot?.msg.type).toBe('snapshot');
+    if (movingSnapshot?.msg.type !== 'snapshot' || firstEntityId === undefined) {
+      throw new Error('Expected a moving player snapshot');
+    }
+    expect(movingSnapshot.msg.ackInput).toBe(0);
+    expect(movingSnapshot.msg.entities).toHaveLength(2);
+    const movedEntity = movingSnapshot.msg.entities.find((entity) => entity.id === firstEntityId);
+    expect(movedEntity?.x).toBeGreaterThan(0);
+
+    first.send(3, {
+      type: 'input',
+      seq: 0,
+      dtMs: 100,
+      moveX: -1,
+      moveY: 0,
+      facing: 192,
+      flags: 0,
+    });
+    await waitFor(() => harness.gateway.getMetrics().sequenceDrops === 1);
+
+    let matchingSnapshot: ServerEnvelope | undefined;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidate = await second.nextSnapshot();
+      if (candidate.msg.type === 'snapshot' && candidate.msg.tick >= movingSnapshot.msg.tick) {
+        matchingSnapshot = candidate;
+        break;
+      }
+    }
+    expect(matchingSnapshot?.msg.type).toBe('snapshot');
+    if (matchingSnapshot?.msg.type === 'snapshot' && movedEntity) {
+      expect(matchingSnapshot.msg.entities.find((entity) => entity.id === firstEntityId)).toEqual(
+        movedEntity,
+      );
+      expect(
+        matchingSnapshot.msg.entities.find((entity) => entity.id === secondEntityId),
+      ).toBeDefined();
+    }
+
+    let settledSnapshot: ServerEnvelope | undefined;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidate = await first.nextSnapshot();
+      if (candidate.msg.type === 'snapshot' && candidate.msg.tick >= movingSnapshot.msg.tick + 8) {
+        settledSnapshot = candidate;
+        break;
+      }
+    }
+    const laterSnapshot = await first.nextSnapshot();
+    if (settledSnapshot?.msg.type === 'snapshot' && laterSnapshot.msg.type === 'snapshot') {
+      expect(laterSnapshot.msg.entities.find((entity) => entity.id === firstEntityId)?.x).toBe(
+        settledSnapshot.msg.entities.find((entity) => entity.id === firstEntityId)?.x,
+      );
+    }
+  });
 });
 
 describe('GameGateway rate limiting', () => {
@@ -377,12 +495,19 @@ describe('GameGateway heartbeat and reconnect', () => {
     const first = await TestClient.connect(harness.url);
     const firstWelcome = await first.hello();
     const firstToken = reconnectTokenFrom(firstWelcome);
+    if (firstWelcome.msg.type !== 'welcome') {
+      throw new Error('Expected first welcome message');
+    }
     first.close();
     await first.closed();
 
     const second = await TestClient.connect(harness.url);
     const secondWelcome = await second.hello(undefined, firstToken);
     const secondToken = reconnectTokenFrom(secondWelcome);
+    if (secondWelcome.msg.type !== 'welcome') {
+      throw new Error('Expected second welcome message');
+    }
+    expect(secondWelcome.msg.entityId).toBe(firstWelcome.msg.entityId);
     expect(secondToken).not.toBe(firstToken);
     expect(harness.gateway.getMetrics().reconnects).toBe(1);
 

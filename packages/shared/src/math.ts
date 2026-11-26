@@ -54,3 +54,95 @@ export function shortestAngleDifference(fromRad: number, toRad: number): number 
   }
   return delta;
 }
+
+export interface ScreenPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface IsometricProjection {
+  readonly tileWidth: number;
+  readonly tileHeight: number;
+  readonly originX: number;
+  readonly originY: number;
+}
+
+export function worldToScreen(
+  worldX: number,
+  worldY: number,
+  projection: IsometricProjection,
+): ScreenPoint {
+  if (
+    !Number.isFinite(worldX) ||
+    !Number.isFinite(worldY) ||
+    !Number.isFinite(projection.tileWidth) ||
+    !Number.isFinite(projection.tileHeight) ||
+    !Number.isFinite(projection.originX) ||
+    !Number.isFinite(projection.originY)
+  ) {
+    throw new RangeError('Isometric projection values must be finite');
+  }
+  if (projection.tileWidth <= 0 || projection.tileHeight <= 0) {
+    throw new RangeError('Isometric tile dimensions must be positive');
+  }
+
+  return {
+    x: projection.originX + (worldX - worldY) * (projection.tileWidth / 2),
+    y: projection.originY + (worldX + worldY) * (projection.tileHeight / 2),
+  };
+}
+
+export function screenToWorld(
+  screenX: number,
+  screenY: number,
+  projection: IsometricProjection,
+): ScreenPoint {
+  if (
+    !Number.isFinite(screenX) ||
+    !Number.isFinite(screenY) ||
+    !Number.isFinite(projection.tileWidth) ||
+    !Number.isFinite(projection.tileHeight) ||
+    !Number.isFinite(projection.originX) ||
+    !Number.isFinite(projection.originY)
+  ) {
+    throw new RangeError('Isometric projection values must be finite');
+  }
+  if (projection.tileWidth <= 0 || projection.tileHeight <= 0) {
+    throw new RangeError('Isometric tile dimensions must be positive');
+  }
+
+  const relativeX = screenX - projection.originX;
+  const relativeY = screenY - projection.originY;
+  return {
+    x: relativeX / projection.tileWidth + relativeY / projection.tileHeight,
+    y: relativeY / projection.tileHeight - relativeX / projection.tileWidth,
+  };
+}
+
+export function screenToTile(
+  screenX: number,
+  screenY: number,
+  projection: IsometricProjection,
+): ScreenPoint {
+  const world = screenToWorld(screenX, screenY, projection);
+  const candidates: [ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint] = [
+    { x: Math.floor(world.x), y: Math.floor(world.y) },
+    { x: Math.floor(world.x), y: Math.ceil(world.y) },
+    { x: Math.ceil(world.x), y: Math.floor(world.y) },
+    { x: Math.ceil(world.x), y: Math.ceil(world.y) },
+  ];
+
+  let nearest = candidates[0];
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const center = worldToScreen(candidate.x, candidate.y, projection);
+    const distanceX = screenX - center.x;
+    const distanceY = screenY - center.y;
+    const distance = distanceX * distanceX + distanceY * distanceY;
+    if (distance < nearestDistance) {
+      nearest = candidate;
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
+}

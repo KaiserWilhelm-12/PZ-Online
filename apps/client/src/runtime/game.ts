@@ -1,60 +1,69 @@
-import { Application, Container, Graphics } from 'pixi.js';
-import { CHUNK_SIZE, createPrng, deriveSeed } from '@lanternfall/shared';
+import Phaser from 'phaser';
+import type { EntityDelta } from '@lanternfall/protocol';
+import {
+  CHUNK_SIZE,
+  createPrng,
+  dequantizeFromSixteenth,
+  deriveSeed,
+  screenToTile,
+  worldToScreen,
+  type IsometricProjection,
+  type ScreenPoint,
+} from '@lanternfall/shared';
 import type { DiagnosticsCollector } from './diagnostics';
 
-const TILE_PX = 32;
-const CHUNK_PX = CHUNK_SIZE * TILE_PX;
+const CHUNK_PX = CHUNK_SIZE * 32;
 const GRASS_TONES = [0x2c3a2c, 0x2a3729, 0x2f3d2e, 0x283427] as const;
+const PROJECTION: IsometricProjection = {
+  tileWidth: 32,
+  tileHeight: 16,
+  originX: CHUNK_PX / 2,
+  originY: CHUNK_PX / 2,
+};
 
-interface WebGlLike {
-  gl?: WebGL2RenderingContext | WebGLRenderingContext;
+interface DrawCallContext {
+  drawArrays: (...args: unknown[]) => unknown;
+  drawElements: (...args: unknown[]) => unknown;
 }
+
+const isDrawCallContext = (value: unknown): value is DrawCallContext =>
+  typeof value === 'object' && value !== null && 'drawArrays' in value && 'drawElements' in value;
 
 class DrawCallCounter {
   private calls = 0;
   private readonly restores: Array<() => void> = [];
 
-  attach(renderer: unknown): void {
-    if (typeof renderer !== 'object' || renderer === null) {
-      return;
-    }
-    const gl = (renderer as WebGlLike).gl;
-    if (!gl) {
-      return;
-    }
-
-    const methodNames = [
+  attach(context: DrawCallContext): void {
+    for (const name of [
       'drawArrays',
       'drawElements',
       'drawArraysInstanced',
       'drawElementsInstanced',
-    ] as const;
-
-    for (const methodName of methodNames) {
-      const target = gl as unknown as Record<string, unknown>;
-      const original = target[methodName];
+    ]) {
+      const target = context as unknown as Record<string, unknown>;
+      const original = target[name];
       if (typeof original !== 'function') {
         continue;
       }
-      const bound = original.bind(gl) as (...args: unknown[]) => unknown;
+
       try {
-        target[methodName] = (...args: unknown[]): unknown => {
+        target[name] = (...args: unknown[]): unknown => {
           this.calls += 1;
-          return bound(...args);
+          return Reflect.apply(original, context, args);
         };
         this.restores.push(() => {
-          target[methodName] = original;
+          target[name] = original;
         });
       } catch {
-        // Some engines expose read-only prototypes; draw-call telemetry is optional.
+        // Renderer telemetry is optional when a browser locks WebGL methods.
       }
     }
   }
 
   take(): number {
-    const value = this.calls;
+    const calls = this.calls;
     this.calls = 0;
-    return value;
+    return calls;
   }
 
   detach(): void {
@@ -65,18 +74,266 @@ class DrawCallCounter {
   }
 }
 
-const isRoadTile = (tileX: number, tileY: number): boolean => {
-  const onHorizontalRoad = tileY >= 13 && tileY <= 16;
-  const onVerticalRoad = tileX >= 6 && tileX <= 9;
-  return onHorizontalRoad || onVerticalRoad;
+const isRoadTile = (tileX: number, tileY: number): boolean =>
+  (tileY >= 13 && tileY <= 16) || (tileX >= 6 && tileX <= 9);
+
+const drawPolygon = (
+  graphics: Phaser.GameObjects.Graphics,
+  points: readonly ScreenPoint[],
+  color: number,
+  alpha = 1,
+): void => {
+  const first = points[0];
+  if (!first) {
+    return;
+  }
+  graphics.fillStyle(color, alpha).beginPath().moveTo(first.x, first.y);
+  for (const point of points.slice(1)) {
+    graphics.lineTo(point.x, point.y);
+  }
+  graphics.closePath().fillPath();
 };
 
+class BootstrapScene extends Phaser.Scene {
+  private readonly actors = new Map<number, Phaser.GameObjects.Container>();
+  private controlledEntityId: number | null = null;
+  private followedEntityId: number | null = null;
+  private selectedTile: Phaser.GameObjects.Graphics | null = null;
+  private readonly drawCalls = new DrawCallCounter();
+
+  constructor(
+    private readonly diagnostics: DiagnosticsCollector,
+    private readonly onReady: (scene: BootstrapScene) => void,
+  ) {
+    super({ key: 'bootstrap' });
+  }
+
+  create(): void {
+    this.cameras.main.setBackgroundColor('#151a17');
+    this.createNeighborhood();
+    this.layoutCamera();
+    this.scale.on('resize', this.layoutCamera, this);
+    this.input.on('pointerup', this.pickTile, this);
+    this.events.once('shutdown', this.onShutdown, this);
+    this.onReady(this);
+  }
+
+  override update(): void {
+    this.diagnostics.recordFrame(performance.now());
+    this.diagnostics.setScene(this.drawCalls.take(), this.children.getChildren().length, 1);
+  }
+
+  setEntities(entities: readonly EntityDelta[]): void {
+    const activeEntities = new Set<number>();
+    for (const entity of entities) {
+      activeEntities.add(entity.id);
+      let actor = this.actors.get(entity.id);
+      if (!actor) {
+        actor = this.createSurvivor();
+        this.actors.set(entity.id, actor);
+      }
+      const point = worldToScreen(
+        dequantizeFromSixteenth(entity.x),
+        dequantizeFromSixteenth(entity.y),
+        PROJECTION,
+      );
+      actor.setPosition(point.x, point.y).setDepth(point.y + 10);
+    }
+    for (const [entityId, actor] of this.actors) {
+      if (!activeEntities.has(entityId)) {
+        actor.destroy();
+        this.actors.delete(entityId);
+      }
+    }
+    this.layoutCamera();
+  }
+
+  setControlledEntity(entityId: number | null): void {
+    this.controlledEntityId = entityId;
+    this.layoutCamera();
+  }
+
+  attachDrawCallCounter(game: Phaser.Game): void {
+    const renderer = game.renderer;
+    if ('gl' in renderer && isDrawCallContext(renderer.gl)) {
+      this.drawCalls.attach(renderer.gl);
+    }
+  }
+
+  private createNeighborhood(): void {
+    const prng = createPrng(deriveSeed(['lanternfall', 'bootstrap-chunk', 0, 0]));
+    const ground = this.add.graphics();
+    const halfWidth = PROJECTION.tileWidth / 2;
+    const halfHeight = PROJECTION.tileHeight / 2;
+
+    for (let tileY = 0; tileY < CHUNK_SIZE; tileY += 1) {
+      for (let tileX = 0; tileX < CHUNK_SIZE; tileX += 1) {
+        const point = worldToScreen(tileX - 16, tileY - 16, PROJECTION);
+        const tone = isRoadTile(tileX, tileY)
+          ? 0x4b4132
+          : (GRASS_TONES[prng.nextInt(0, GRASS_TONES.length)] ?? 0x2a3729);
+        drawPolygon(
+          ground,
+          [
+            { x: point.x, y: point.y - halfHeight },
+            { x: point.x + halfWidth, y: point.y },
+            { x: point.x, y: point.y + halfHeight },
+            { x: point.x - halfWidth, y: point.y },
+          ],
+          tone,
+        );
+      }
+    }
+
+    const details = this.add.graphics().setDepth(1);
+    for (let index = 0; index < 180; index += 1) {
+      const tileX = prng.nextInt(0, CHUNK_SIZE);
+      const tileY = prng.nextInt(0, CHUNK_SIZE);
+      if (isRoadTile(tileX, tileY)) {
+        continue;
+      }
+      const point = worldToScreen(tileX - 16, tileY - 16, PROJECTION);
+      details
+        .fillStyle(0x4a5f45, 0.55)
+        .fillCircle(
+          point.x + (prng.nextFloat() - 0.5) * 18,
+          point.y + (prng.nextFloat() - 0.5) * 8,
+          1.5 + prng.nextFloat() * 3.5,
+        );
+    }
+
+    this.createHouse();
+  }
+
+  private createHouse(): void {
+    const center = worldToScreen(-8, -4, PROJECTION);
+    const walls = this.add.graphics().setDepth(center.y + 48);
+    drawPolygon(
+      walls,
+      [
+        { x: center.x - 72, y: center.y - 16 },
+        { x: center.x, y: center.y + 20 },
+        { x: center.x, y: center.y + 72 },
+        { x: center.x - 72, y: center.y + 36 },
+      ],
+      0x786447,
+    );
+    drawPolygon(
+      walls,
+      [
+        { x: center.x, y: center.y + 20 },
+        { x: center.x + 72, y: center.y - 16 },
+        { x: center.x + 72, y: center.y + 36 },
+        { x: center.x, y: center.y + 72 },
+      ],
+      0x574532,
+    );
+
+    const openings = this.add.graphics().setDepth(center.y + 50);
+    openings.fillStyle(0x8aa0a2).fillRect(center.x - 56, center.y + 2, 20, 14);
+    openings.fillStyle(0x8aa0a2).fillRect(center.x + 34, center.y + 2, 20, 14);
+    openings.fillStyle(0x2a211c).fillRect(center.x - 10, center.y + 40, 20, 32);
+
+    const roof = this.add.graphics().setDepth(center.y + 80);
+    drawPolygon(
+      roof,
+      [
+        { x: center.x, y: center.y - 68 },
+        { x: center.x + 80, y: center.y - 28 },
+        { x: center.x, y: center.y + 12 },
+      ],
+      0x49302a,
+    );
+    drawPolygon(
+      roof,
+      [
+        { x: center.x, y: center.y - 68 },
+        { x: center.x - 80, y: center.y - 28 },
+        { x: center.x, y: center.y + 12 },
+      ],
+      0x674137,
+    );
+  }
+
+  private createSurvivor(): Phaser.GameObjects.Container {
+    const survivor = this.add.container(0, 0);
+    const glow = this.add.graphics();
+    glow.fillStyle(0xe0a64b, 0.08).fillCircle(0, 0, 26);
+    glow.fillStyle(0xe0a64b, 0.12).fillCircle(0, 0, 16);
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.35).fillEllipse(0, 10, 26, 12);
+    const body = this.add.graphics();
+    body.fillStyle(0x2f3b33).fillCircle(0, 0, 9);
+    body.lineStyle(2, 0xd9cba4).strokeCircle(0, 0, 9);
+    body.lineStyle(2, 0xd9cba4).beginPath().moveTo(0, -4).lineTo(0, -24).strokePath();
+    const lantern = this.add.graphics();
+    lantern.fillStyle(0xe0a64b).fillCircle(8, -4, 4);
+    survivor.add([glow, shadow, body, lantern]);
+    return survivor;
+  }
+
+  private pickTile(pointer: Phaser.Input.Pointer): void {
+    const screenPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tile = screenToTile(screenPoint.x, screenPoint.y, PROJECTION);
+    if (tile.x < -16 || tile.x > 15 || tile.y < -16 || tile.y > 15) {
+      this.selectedTile?.clear();
+      return;
+    }
+    const center = worldToScreen(tile.x, tile.y, PROJECTION);
+    const halfWidth = PROJECTION.tileWidth / 2;
+    const halfHeight = PROJECTION.tileHeight / 2;
+    const marker = this.selectedTile ?? this.add.graphics();
+    marker
+      .clear()
+      .setDepth(center.y + 1)
+      .lineStyle(2, 0xe0a64b, 0.95)
+      .beginPath()
+      .moveTo(center.x, center.y - halfHeight)
+      .lineTo(center.x + halfWidth, center.y)
+      .lineTo(center.x, center.y + halfHeight)
+      .lineTo(center.x - halfWidth, center.y)
+      .closePath()
+      .strokePath();
+    this.selectedTile = marker;
+  }
+
+  private layoutCamera(): void {
+    const camera = this.cameras.main;
+    const width = this.scale.width || this.game.canvas.width;
+    const height = this.scale.height || this.game.canvas.height;
+    const zoom = Math.max(0.45, Math.min(width / (CHUNK_PX * 1.1), height / (CHUNK_PX * 0.8), 1.3));
+    camera.setZoom(zoom);
+    const actor =
+      this.controlledEntityId === null ? undefined : this.actors.get(this.controlledEntityId);
+    if (actor && this.controlledEntityId !== null) {
+      if (this.followedEntityId !== this.controlledEntityId) {
+        camera.startFollow(actor, true, 0.08, 0.08);
+        this.followedEntityId = this.controlledEntityId;
+      }
+    } else {
+      camera.stopFollow();
+      this.followedEntityId = null;
+      camera.centerOn(PROJECTION.originX, PROJECTION.originY);
+    }
+  }
+
+  private onShutdown(): void {
+    this.scale.off('resize', this.layoutCamera, this);
+    this.input.off('pointerup', this.pickTile, this);
+    this.drawCalls.detach();
+    this.actors.clear();
+    this.selectedTile = null;
+  }
+}
+
 export class GameRuntime {
-  private app: Application | null = null;
-  private world: Container | null = null;
-  private readonly drawCounter = new DrawCallCounter();
-  private resizeObserver: ResizeObserver | null = null;
-  private ready = false;
+  private game: Phaser.Game | null = null;
+  private scene: BootstrapScene | null = null;
+  private entities: readonly EntityDelta[] = [];
+  private controlledEntityId: number | null = null;
+  private startupTimer: number | null = null;
+  private resolveStartup: (() => void) | null = null;
+  private rejectStartup: ((error: Error) => void) | null = null;
   private destroyed = false;
 
   constructor(
@@ -85,160 +342,90 @@ export class GameRuntime {
   ) {}
 
   async start(): Promise<void> {
-    const app = new Application();
-    this.app = app;
-
-    await app.init({
-      background: '#151a17',
-      resizeTo: this.host,
-      antialias: false,
-      autoDensity: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-    });
-
-    if (this.destroyed) {
-      app.destroy(true);
+    if (this.game) {
       return;
     }
-
-    app.canvas.style.touchAction = 'none';
-    app.canvas.setAttribute('aria-label', 'Lanternfall bootstrap chunk');
-    this.host.appendChild(app.canvas);
-
-    const world = this.buildScene();
-    this.world = world;
-    app.stage.addChild(world);
-
-    this.drawCounter.attach(app.renderer);
-    this.ready = true;
-
-    this.layout();
-    this.resizeObserver = new ResizeObserver(() => {
-      this.layout();
+    const ready = new Promise<void>((resolve, reject) => {
+      this.resolveStartup = resolve;
+      this.rejectStartup = reject;
     });
-    this.resizeObserver.observe(this.host);
-    window.addEventListener('resize', this.onWindowResize);
+    this.startupTimer = window.setTimeout(() => {
+      this.finishStartup(new Error('Phaser renderer did not initialize in time'));
+    }, 15000);
 
-    app.ticker.add(() => {
-      this.onFrame();
+    const scene = new BootstrapScene(this.diagnostics, (readyScene) => {
+      this.scene = readyScene;
+      readyScene.attachDrawCallCounter(game);
+      readyScene.setEntities(this.entities);
+      readyScene.setControlledEntity(this.controlledEntityId);
+      this.finishStartup();
     });
+    const game = new Phaser.Game({
+      type: Phaser.WEBGL,
+      parent: this.host,
+      width: this.host.clientWidth || 800,
+      height: this.host.clientHeight || 600,
+      backgroundColor: '#151a17',
+      antialias: false,
+      pixelArt: true,
+      roundPixels: true,
+      scale: {
+        mode: Phaser.Scale.RESIZE,
+      },
+      scene: [scene],
+    });
+    this.game = game;
+
+    try {
+      await ready;
+    } catch (error) {
+      this.destroy();
+      throw error;
+    }
+
+    if (this.destroyed) {
+      this.destroy();
+      return;
+    }
+    game.canvas.style.touchAction = 'none';
+    game.canvas.setAttribute('aria-label', 'Lanternfall isometric neighborhood');
   }
 
   destroy(): void {
     this.destroyed = true;
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = null;
-    window.removeEventListener('resize', this.onWindowResize);
-
-    if (this.app && this.ready) {
-      this.drawCounter.detach();
-      this.app.destroy(true, { children: true, texture: true });
-    }
-    this.ready = false;
-    this.app = null;
-    this.world = null;
+    this.finishStartup(new Error('Phaser runtime was destroyed before startup completed'));
+    this.scene = null;
+    const game = this.game;
+    this.game = null;
+    game?.destroy(true);
   }
 
-  private readonly onWindowResize = (): void => {
-    this.layout();
-  };
-
-  private buildScene(): Container {
-    const world = new Container();
-    const prng = createPrng(deriveSeed(['lanternfall', 'bootstrap-chunk', 0, 0]));
-
-    const ground = new Graphics();
-    for (let tileY = 0; tileY < CHUNK_SIZE; tileY += 1) {
-      for (let tileX = 0; tileX < CHUNK_SIZE; tileX += 1) {
-        const tone = GRASS_TONES[prng.nextInt(0, GRASS_TONES.length)] ?? 0x2a3729;
-        ground.rect(tileX * TILE_PX, tileY * TILE_PX, TILE_PX, TILE_PX).fill(tone);
-      }
-    }
-    ground.rect(0, 13 * TILE_PX, CHUNK_PX, 4 * TILE_PX).fill(0x4b4132);
-    ground.rect(6 * TILE_PX, 0, 4 * TILE_PX, CHUNK_PX).fill(0x463d30);
-    world.addChild(ground);
-
-    const grid = new Graphics();
-    for (let index = 1; index < CHUNK_SIZE; index += 1) {
-      const offset = index * TILE_PX;
-      grid
-        .moveTo(offset, 0)
-        .lineTo(offset, CHUNK_PX)
-        .stroke({ width: 1, color: 0xd7c9a8, alpha: 0.05 });
-      grid
-        .moveTo(0, offset)
-        .lineTo(CHUNK_PX, offset)
-        .stroke({ width: 1, color: 0xd7c9a8, alpha: 0.05 });
-    }
-    world.addChild(grid);
-
-    const roadMarks = new Graphics();
-    for (let offset = 0; offset < CHUNK_PX; offset += 64) {
-      roadMarks.rect(offset, 14.7 * TILE_PX, 30, 4).fill({ color: 0xd7c9a8, alpha: 0.16 });
-      roadMarks.rect(7.7 * TILE_PX, offset, 4, 30).fill({ color: 0xd7c9a8, alpha: 0.16 });
-    }
-    world.addChild(roadMarks);
-
-    const details = new Graphics();
-    for (let index = 0; index < 180; index += 1) {
-      const tileX = prng.nextInt(0, CHUNK_SIZE);
-      const tileY = prng.nextInt(0, CHUNK_SIZE);
-      if (isRoadTile(tileX, tileY)) {
-        continue;
-      }
-      const x = tileX * TILE_PX + prng.nextFloat() * TILE_PX;
-      const y = tileY * TILE_PX + prng.nextFloat() * TILE_PX;
-      const radius = 1.5 + prng.nextFloat() * 3.5;
-      details.circle(x, y, radius).fill({ color: 0x4a5f45, alpha: 0.55 });
-    }
-    world.addChild(details);
-
-    const border = new Graphics()
-      .rect(0, 0, CHUNK_PX, CHUNK_PX)
-      .stroke({ width: 2, color: 0xd7c9a8, alpha: 0.3 });
-    world.addChild(border);
-
-    const survivor = new Container();
-    survivor.position.set(CHUNK_PX / 2, 15 * TILE_PX);
-    const glow = new Graphics()
-      .circle(0, 0, 30)
-      .fill({ color: 0xe0a64b, alpha: 0.05 })
-      .circle(0, 0, 18)
-      .fill({ color: 0xe0a64b, alpha: 0.1 });
-    const shadow = new Graphics().ellipse(0, 10, 13, 6).fill({ color: 0x000000, alpha: 0.35 });
-    const facing = new Graphics()
-      .moveTo(0, -4)
-      .lineTo(0, -24)
-      .stroke({ width: 2, color: 0xd9cba4, alpha: 0.9 });
-    const body = new Graphics()
-      .circle(0, 0, 9)
-      .fill(0x2f3b33)
-      .stroke({ width: 2, color: 0xd9cba4 });
-    const lantern = new Graphics().circle(8, -4, 4).fill(0xe0a64b);
-    survivor.addChild(glow, shadow, facing, body, lantern);
-    world.addChild(survivor);
-
-    return world;
+  setEntities(entities: readonly EntityDelta[]): void {
+    this.entities = entities.map((entity) => ({ ...entity }));
+    this.scene?.setEntities(this.entities);
   }
 
-  private layout(): void {
-    if (!this.app || !this.world) {
+  setControlledEntity(entityId: number | null): void {
+    this.controlledEntityId = entityId;
+    this.scene?.setControlledEntity(entityId);
+  }
+
+  private finishStartup(error?: Error): void {
+    if (!this.resolveStartup) {
       return;
     }
-    const width = this.host.clientWidth || window.innerWidth;
-    const height = this.host.clientHeight || window.innerHeight;
-    const scale = Math.max(
-      0.35,
-      Math.min(width / (CHUNK_PX * 1.1), height / (CHUNK_PX * 1.1), 1.4),
-    );
-    this.world.scale.set(scale);
-    this.world.position.set((width - CHUNK_PX * scale) / 2, (height - CHUNK_PX * scale) / 2);
-  }
-
-  private onFrame(): void {
-    const now = performance.now();
-    this.diagnostics.recordFrame(now);
-    const drawCalls = this.drawCounter.take();
-    this.diagnostics.setScene(drawCalls, this.world?.children.length ?? 0, 1);
+    if (this.startupTimer !== null) {
+      window.clearTimeout(this.startupTimer);
+      this.startupTimer = null;
+    }
+    const resolve = this.resolveStartup;
+    const reject = this.rejectStartup;
+    this.resolveStartup = null;
+    this.rejectStartup = null;
+    if (error) {
+      reject?.(error);
+    } else {
+      resolve();
+    }
   }
 }

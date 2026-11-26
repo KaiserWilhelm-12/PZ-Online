@@ -15,7 +15,7 @@ edges:
   - target: context/conventions.md
     condition: when a decision changes how code must be written
 grounds_to: []
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 mex:
   id: mx_01M88T5M38AG876GTN5KB97S07
   type: architecture
@@ -43,6 +43,18 @@ mex:
      The history must be preserved — this is the event clock. -->
 
 ## Decision Log
+
+### Use Phaser with the existing server transport and PostgreSQL target
+**Date:** 2026-11-27
+**Status:** Active
+**Decision:** Use Phaser 4.2.1 for an isometric renderer, retain Fastify and
+`ws`, and target PostgreSQL for server-side persistence.
+**Reasoning:** The project owner selected this direction for the approved
+implementation roadmap; it preserves the existing validated transport and
+protocol while moving the client toward the requested isometric game.
+**Consequences:** Phaser loads as a separate renderer chunk; PostgreSQL remains
+unimplemented until migrations, repositories, and integration tests are added.
+The frozen `docs/architecture.md` remains a historical baseline.
 
 <!-- mex:entity
 id: mx_01M88T5M0BD53C0P8SEXNDJDMB

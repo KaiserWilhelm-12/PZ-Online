@@ -3,6 +3,20 @@
 All notable changes to Lanternfall are recorded here. The project follows
 [Semantic Versioning](https://semver.org/) once public releases begin.
 
+## [Unreleased]
+
+### Changed
+
+- Selected Phaser 4.2.1 with an isometric view for the game renderer; Phaser is
+  dynamically loaded so the React/Vite PWA shell remains separate.
+- Retained the existing Fastify/WebSocket transport and protocol. PostgreSQL
+  is the selected persistence target; database support is not implemented yet.
+- Replaced the Pixi renderer with an original geometric neighborhood scene,
+  touch joystick overlay, server-position display, and isometric tile picking.
+- Added fixed-rate authoritative movement, monotonic input sequence checks,
+  stale-input expiry, and multi-client snapshots with stable in-memory entity IDs
+  during the reconnect grace period. Snapshot positions use 1/16-tile units.
+
 ## [0.1.0] — 2026-11-24
 
 ### Added
@@ -43,6 +57,6 @@ All notable changes to Lanternfall are recorded here. The project follows
 
 ### Not yet implemented
 
-- Movement, touch joystick, collision, world streaming, zombies, inventory,
-  persistence, production authentication flow, audio, offline gameplay, and
-  30-minute soak testing. See `docs/tech-debt.md`.
+- Collision, prediction/reconciliation, interpolation, world streaming, zombies,
+  inventory, persistence, production authentication flow, audio, offline
+  gameplay, and 30-minute soak testing. See `docs/tech-debt.md`.
